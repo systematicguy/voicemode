@@ -1296,6 +1296,11 @@ def record_audio_with_silence_detection(max_duration: float, disable_silence_det
         recording_duration = 0
         speech_detected = False
         stop_recording = False
+        # Wall-clock cap: recording_duration only advances when audio chunks
+        # arrive, so a stream that goes quiet (device lost, backend delivering
+        # no callbacks) would otherwise spin the loop forever. The wall clock
+        # is the cap the caller actually asked for.
+        wall_start = time.monotonic()
         
         # Use a queue for thread-safe communication
         import queue
@@ -1347,7 +1352,8 @@ def record_audio_with_silence_detection(max_duration: float, disable_silence_det
                 
                 logger.debug("Started continuous audio stream")
                 
-                while recording_duration < max_duration and not stop_recording:
+                while (recording_duration < max_duration and not stop_recording
+                       and time.monotonic() - wall_start < max_duration):
                     # VM-1676: honour a control-channel stop while listening, so a
                     # stop that arrives mid-record returns cleanly (converse then
                     # builds the normal control-marker result). Cheap snapshot;
@@ -2084,8 +2090,8 @@ consult the MCP resources listed above.
     # Track execution time and resources
     start_time = time.time()
     if DEBUG:
-        import resource
-        start_memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        # psutil, not resource.getrusage: the resource module is Unix-only
+        start_memory = psutil.Process().memory_info().rss // 1024
         logger.debug(f"Starting converse - Memory: {start_memory} KB")
     
     result = None
@@ -3065,9 +3071,9 @@ consult the MCP resources listed above.
         logger.info(f"Converse completed in {elapsed:.2f}s")
         
         if DEBUG:
-            import resource
             import gc
-            end_memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+            # psutil, not resource.getrusage: the resource module is Unix-only
+            end_memory = psutil.Process().memory_info().rss // 1024
             memory_delta = end_memory - start_memory
             logger.debug(f"Memory delta: {memory_delta} KB (start: {start_memory}, end: {end_memory})")
             
