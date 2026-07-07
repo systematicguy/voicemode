@@ -548,12 +548,13 @@ class TestConchAtomicLocking:
 
         new_conch.release()
 
-    def test_check_and_clear_handles_permission_error(self):
-        """An existing-but-unsignalable holder is treated as 'alive'.
+    def test_holder_owned_by_another_user_is_treated_as_alive(self):
+        """A holder that exists but is not signalable by us must NOT be cleared.
 
-        psutil.pid_exists() returns True for a process owned by another
-        user (the old os.kill PermissionError case). We must NOT clear the
-        lock in that case.
+        psutil.pid_exists() returns True for a process owned by another user
+        (on POSIX that is the kill(pid, 0) -> EPERM/PermissionError case:
+        the kernel refuses the signal, which itself proves the process is
+        alive). Clearing the lock would steal the floor from a live holder.
         """
         # Write a lock file with a fresh timestamp and some PID.
         Conch.LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
