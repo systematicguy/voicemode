@@ -93,19 +93,15 @@ def main():
     else:
         logger.info("Event logging disabled")
     
-    # Run the server. Transport is env-selectable: some MCP clients spawn
+    # Run the server. Transport is configurable: some MCP clients spawn
     # stdio children in a context without microphone access (observed with
     # Claude Code on native Windows); running VoiceMode as a standalone
     # HTTP MCP service and pointing the client at the URL sidesteps that.
-    transport = os.getenv("VOICEMODE_MCP_TRANSPORT", "stdio")
-    if transport == "stdio":
+    from .config import MCP_TRANSPORT, MCP_HOST, MCP_PORT
+    if MCP_TRANSPORT == "stdio":
         mcp.run(transport="stdio")
     else:
-        mcp.run(
-            transport=transport,
-            host=os.getenv("VOICEMODE_MCP_HOST", "127.0.0.1"),
-            port=int(os.getenv("VOICEMODE_MCP_PORT", "8300")),
-        )
+        mcp.run(transport=MCP_TRANSPORT, host=MCP_HOST, port=MCP_PORT)
 
 if __name__ == "__main__":
     main()

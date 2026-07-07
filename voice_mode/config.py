@@ -178,6 +178,19 @@ VOICEMODE_VOICES=af_sky
 # VOICEMODE_AUTO_START_KOKORO=false
 
 #############
+# MCP Server Transport
+#############
+
+# Transport for the VoiceMode MCP server: stdio (default) or a FastMCP network
+# transport such as "http" (streamable HTTP at /mcp). Use a network transport
+# when the MCP client spawns stdio children in a process context without
+# microphone access (observed with Claude Code on native Windows): run
+# VoiceMode standalone and point the client at http://HOST:PORT/mcp.
+# VOICEMODE_MCP_TRANSPORT=stdio
+# VOICEMODE_MCP_HOST=127.0.0.1
+# VOICEMODE_MCP_PORT=8300
+
+#############
 # Whisper Configuration
 #############
 
@@ -830,6 +843,14 @@ KOKORO_MODELS_DIR = expand_path(os.getenv("VOICEMODE_KOKORO_MODELS_DIR", str(BAS
 KOKORO_CACHE_DIR = expand_path(os.getenv("VOICEMODE_KOKORO_CACHE_DIR", str(BASE_DIR / "cache" / "kokoro")))
 KOKORO_DEFAULT_VOICE = os.getenv("VOICEMODE_KOKORO_DEFAULT_VOICE", "af_sky")
 KOKORO_MAX_REQUESTS = int(os.getenv("VOICEMODE_KOKORO_MAX_REQUESTS", "25"))
+
+# ==================== MCP SERVER TRANSPORT ====================
+
+# stdio (default) or a FastMCP network transport such as "http"; host/port
+# apply to network transports only. See the commented section above.
+MCP_TRANSPORT = os.getenv("VOICEMODE_MCP_TRANSPORT", "stdio")
+MCP_HOST = os.getenv("VOICEMODE_MCP_HOST", "127.0.0.1")
+MCP_PORT = int(os.getenv("VOICEMODE_MCP_PORT", "8300"))
 
 # ==================== MLX-AUDIO SERVICE CONFIGURATION ====================
 
