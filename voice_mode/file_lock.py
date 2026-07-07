@@ -18,7 +18,19 @@ error handling is identical across platforms.
 import os
 import sys
 
-if sys.platform == "win32":
+if sys.platform != "win32":
+    import fcntl
+
+    def lock_exclusive(fd: int, blocking: bool = False) -> None:
+        """Take an exclusive lock on fd; raises OSError if non-blocking and held."""
+        flags = fcntl.LOCK_EX if blocking else fcntl.LOCK_EX | fcntl.LOCK_NB
+        fcntl.flock(fd, flags)
+
+    def unlock(fd: int) -> None:
+        """Release the lock taken by lock_exclusive()."""
+        fcntl.flock(fd, fcntl.LOCK_UN)
+
+else:
     import msvcrt
 
     # 1-byte lock region far beyond any plausible payload size.
@@ -53,15 +65,3 @@ if sys.platform == "win32":
             msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
         finally:
             os.lseek(fd, prev, os.SEEK_SET)
-
-else:
-    import fcntl
-
-    def lock_exclusive(fd: int, blocking: bool = False) -> None:
-        """Take an exclusive lock on fd; raises OSError if non-blocking and held."""
-        flags = fcntl.LOCK_EX if blocking else fcntl.LOCK_EX | fcntl.LOCK_NB
-        fcntl.flock(fd, flags)
-
-    def unlock(fd: int) -> None:
-        """Release the lock taken by lock_exclusive()."""
-        fcntl.flock(fd, fcntl.LOCK_UN)
