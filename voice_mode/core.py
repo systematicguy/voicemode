@@ -446,6 +446,10 @@ async def text_to_speech(
         with tempfile.NamedTemporaryFile(suffix=f'.{validated_format}', delete=False) as tmp_file:
             tmp_file.write(response_content)
             tmp_file.flush()
+            # Windows holds an exclusive handle until close, and the loaders below
+            # reopen this file by name (issue #135). Closing here is safe: the
+            # enclosing block's exit closes again, which is a no-op.
+            tmp_file.close()
             
             logger.debug(f"Audio written to temp file: {tmp_file.name}")
             
@@ -554,7 +558,6 @@ async def text_to_speech(
                             event_logger.log_event(event_logger.TTS_PLAYBACK_END, tts_event_data)
 
                         logger.info("✓ TTS played successfully")
-                        os.unlink(tmp_file.name)
                         return True, metrics
                     finally:
                         # Restore stdio if it was changed
@@ -576,7 +579,6 @@ async def text_to_speech(
                         logger.debug("Using PyDub playback...")
                         pydub_play(audio)
                         logger.info("✓ TTS played successfully with PyDub")
-                        os.unlink(tmp_file.name)
                         metrics['playback'] = time.perf_counter() - playback_start
                         return True, metrics
                     except Exception as pydub_error:
@@ -588,12 +590,10 @@ async def text_to_speech(
                         import shutil
                         shutil.copy(tmp_file.name, fallback_path)
                         logger.warning(f"Audio saved to {fallback_path} for manual playback")
-                        os.unlink(tmp_file.name)
                         metrics['playback'] = time.perf_counter() - playback_start
                         return False, metrics
                     except Exception as save_error:
                         logger.error(f"Failed to save audio file: {save_error}")
-                        os.unlink(tmp_file.name)
                         metrics['playback'] = time.perf_counter() - playback_start
                         return False, metrics
                 
@@ -610,7 +610,6 @@ async def text_to_speech(
                         result = subprocess.run(['paplay', tmp_file.name], capture_output=True, timeout=10)
                         if result.returncode == 0:
                             logger.info("✓ Alternative playback successful")
-                            os.unlink(tmp_file.name)
                             metrics['playback'] = time.perf_counter() - playback_start
                             return True, metrics
                         else:
@@ -618,9 +617,18 @@ async def text_to_speech(
                     except Exception as alt_e:
                         logger.error(f"Alternative playback error: {alt_e}")
                 
-                os.unlink(tmp_file.name)
                 metrics['playback'] = time.perf_counter() - playback_start
                 return False, metrics
+            finally:
+                # The temp file outlives every playback attempt above, so it is removed
+                # once here rather than on each return. Windows refuses to unlink a file
+                # another handle still holds, and a raise inside the block above is caught
+                # as a playback failure and replays the whole message through the fallback
+                # player (issue #135 is the same defect in the STT path).
+                try:
+                    os.unlink(tmp_file.name)
+                except OSError as unlink_error:
+                    logger.debug(f"Could not remove temp file {tmp_file.name}: {unlink_error}")
                         
     except Exception as e:
         logger.error(f"TTS failed: {e}")
