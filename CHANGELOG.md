@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Windows MCP: recording ran to `listen_duration_max` every time** (#545) - `from scipy import
+  signal` sat inside the per-chunk recording loop, so its first execution landed after the input
+  stream had opened and blocked the VAD for about 24 s while scipy loaded. The import now runs at
+  module load, before any stream opens.
+
 ## [8.12.0] - 2026-07-21
 
 ### Fixed
